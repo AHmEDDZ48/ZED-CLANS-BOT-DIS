@@ -6,20 +6,19 @@ import os
 class MyBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.members = True # للسماح للبوت بإدارة الأعضاء
+        intents.members = True 
         super().__init__(command_prefix='.', intents=intents)
 
     async def setup_hook(self):
-        # هذه الوظيفة هي التي تظهر الـ 12 أمراً في ديسكورد
         await self.tree.sync()
         print(f"✅ تم مزامنة {len(self.tree.get_commands())} أمراً بنجاح!")
 
 bot = MyBot()
-clans = {} # قاعدة البيانات المؤقتة
+clans = {} 
 
 @bot.event
 async def on_ready():
-    print(f'🚀 {bot.user} جاهز للعمل بجميع الأوامر!')
+    print(f'🚀 {bot.user} متصل وجاهز للعمل!')
 
 # 1. معلومات الكلان
 @bot.tree.command(name="clan-info", description="عرض معلومات الكلان بالتفصيل")
@@ -27,18 +26,18 @@ async def info(interaction: discord.Interaction, name: str):
     if name not in clans:
         return await interaction.response.send_message("❌ الكلان غير موجود.", ephemeral=True)
     d = clans[name]
-    embed = discord.Embed(title=f"🛡️ كلان {name}", color=discord.Color.blue())
+    embed = discord.Embed(title=f"🛡️ معلومات كلان {name}", color=discord.Color.blue())
     embed.add_field(name="القائد", value=f"<@{d['owner']}>")
     embed.add_field(name="النائب", value=f"<@{d['coleader']}>" if d.get('coleader') else "لا يوجد")
-    embed.add_field(name="النقاط", value=d.get('points', 0))
-    embed.add_field(name="الأعضاء", value=len(d['members']) + 1)
+    embed.add_field(name="النقاط", value=f"`{d.get('points', 0):,}`")
+    embed.add_field(name="الأعضاء", value=f"`{len(d['members']) + 1}`")
     await interaction.response.send_message(embed=embed)
 
 # 2. قائمة الكلانات
-@bot.tree.command(name="clan-list", description="عرض قائمة بكل الكلانات في السيرفر")
+@bot.tree.command(name="clan-list", description="عرض قائمة بكل الكلانات")
 async def list_clans(interaction: discord.Interaction):
     if not clans: return await interaction.response.send_message("📭 لا توجد كلانات حالياً.")
-    msg = "\n".join([f"🔹 **{n}** | النقاط: {d.get('points', 0)}" for n, d in clans.items()])
+    msg = "\n".join([f"🔹 **{n}** | النقاط: `{d.get('points', 0):,}`" for n, d in clans.items()])
     await interaction.response.send_message(f"📋 **قائمة الكلانات:**\n{msg}")
 
 # 3. إنشاء كلان
@@ -54,7 +53,7 @@ async def create(interaction: discord.Interaction, name: str):
 async def remove_mem(interaction: discord.Interaction, member: discord.Member):
     clan = next((n for n, d in clans.items() if d['owner'] == interaction.user.id), None)
     if not clan or member.id not in clans[clan]['members']:
-        return await interaction.response.send_message("❌ ليس لديك صلاحية أو العضو غير موجود.", ephemeral=True)
+        return await interaction.response.send_message("❌ ليس لديك صلاحية أو العضو غير موجود في كلانك.", ephemeral=True)
     clans[clan]['members'].remove(member.id)
     await interaction.response.send_message(f"👞 تم طرد {member.mention} من الكلان.")
 
@@ -66,7 +65,7 @@ async def add_mem(interaction: discord.Interaction, member: discord.Member):
     clans[clan]['members'].append(member.id)
     await interaction.response.send_message(f"✅ تمت إضافة {member.mention} بنجاح.")
 
-# 6. تعيين قائد جديد (نقل الملكية)
+# 6. تعيين قائد جديد
 @bot.tree.command(name="clan-s-leader", description="نقل ملكية الكلان لشخص آخر")
 async def s_leader(interaction: discord.Interaction, member: discord.Member):
     clan = next((n for n, d in clans.items() if d['owner'] == interaction.user.id), None)
@@ -101,13 +100,27 @@ async def leave(interaction: discord.Interaction):
             return await interaction.response.send_message(f"👋 غادرت كلان {n}.")
     await interaction.response.send_message("❌ أنت لست عضواً في أي كلان.", ephemeral=True)
 
-# 10. الترتيب (Leaderboard)
-@bot.tree.command(name="clan-leaderboard", description="ترتيب الكلانات حسب النقاط")
+# 10. الترتيب الاحترافي (Leaderboard) - تصميم الصور
+@bot.tree.command(name="clan-leaderboard", description="عرض ترتيب الكلانات بشكل احترافي")
 async def leaderboard(interaction: discord.Interaction):
-    if not clans: return await interaction.response.send_message("❌ لا توجد بيانات.")
+    if not clans:
+        return await interaction.response.send_message("❌ لا توجد بيانات للترتيب حالياً.")
+    
     sorted_clans = sorted(clans.items(), key=lambda x: x[1].get('points', 0), reverse=True)
-    msg = "\n".join([f"🏆 **{n}** - {d['points']} نقطة" for n, d in sorted_clans[:10]])
-    await interaction.response.send_message(f"📊 **ترتيب الكلانات:**\n{msg}")
+    
+    embed = discord.Embed(title="🏆 HYPE CLANS LEADERBOARD", color=discord.Color.gold())
+    medals = {0: "🥇", 1: "🥈", 2: "🥉"}
+
+    for index, (name, data) in enumerate(sorted_clans[:10]):
+        emoji = medals.get(index, "🏅")
+        details = (
+            f"└─ **Leader:** <@{data['owner']}>\n"
+            f"└─ **Points:** `{data.get('points', 0):,}` | **Members:** `{len(data['members']) + 1}`\n"
+            f"└─ **Wars:** `0` | **Challenges:** `0`"
+        )
+        embed.add_field(name=f"{emoji} | {name.upper()}", value=details, inline=False)
+
+    await interaction.response.send_message(embed=embed)
 
 # 11. إضافة نقاط
 @bot.tree.command(name="clan-add-points", description="إضافة نقاط لكلان محدد")
